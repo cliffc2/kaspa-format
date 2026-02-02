@@ -27,3 +27,5 @@ explorer.kaspa.org
 Most wallets auto-validate on paste.
 Never send to a kaspatest: address on mainnet (funds lost forever).
 
+https://kaspa.aspectron.org/wallets/primitives/addresses.html
+
