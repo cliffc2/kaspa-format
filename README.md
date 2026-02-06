@@ -1,30 +1,180 @@
 # kaspa-format
 kaspa address format
-Kaspa wallet addresses use a modern, Bech32-encoded format (similar to Bitcoin's Bech32 but customized for Kaspa). They always include a network prefix followed by a colon (:) and then a long string of lowercase alphanumeric characters (Bech32 charset: qpzry9x8gf2tvdw0s3jn54khce6mua7l).Mainnet (Live Kaspa Network – Most Common)Prefix: kaspa:
-Full format: Starts with kaspa: followed by ~59–62 Bech32 characters (total length usually around 62–68 characters including the prefix).
-Examples (real public ones from explorers/docs):kaspa:qpauqsvk7yf9unexwmxsnmg547mhyga37csh0kj53q6xxgl24ydxjsgzthw5j
-kaspa:qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqkx9awp4e (famous "burn address")
-kaspa:qr7c9k6903nwr8qttefcsl8g78fwaz2820sf3x3l7dhrxlj6dn2e5rqkxmv08
 
-When copying a wallet address for receiving/sending KAS on the main network (e.g., from Kaspium, Rusty Kaspa Wallet, Kaspa Web Wallet, or exchanges like KuCoin/Gate.io), it must start with kaspa:. Omitting the prefix or using the wrong one will cause transactions to fail.Testnet / Other NetworksKaspa has multiple networks with different prefixes (useful for devs/testing):Testnet-10/11: kaspatest: (e.g., kaspatest:qqnapngv3zxp305qf06w6hpzmyxtx2r99jjhs04lu980xdyd2ulwwmx9evrfz)
-Simnet (local simulation): kaspasim:
-Devnet: kaspadev:
 
-For normal users/miners/traders in 2026, you almost always want the mainnet kaspa: format.Key DetailsEncoding: Bech32 (human-readable, error-detecting via checksum; case-insensitive but usually lowercase).
-Address Types Supported (behind the scenes):Schnorr P2PK (most common/modern)
-ECDSA P2PK
-P2SH (Pay-to-Script-Hash, rarer)
+To send a transaction and get it written to the Kaspa blockchain you need to: build a Kaspa transaction object, submit it via a Kaspa node’s RPC, then wait for it to be accepted into the DAG.
 
-All valid addresses include a built-in checksum — wallets/explorers will reject invalid ones.
-Length variation: Slight differences based on pubkey type (Schnorr vs ECDSA), but always starts with the prefix + colon.
-Derivation: Modern wallets use BIP-32/44 path m/44'/111111'/0' (coin type 111111' is Kaspa's SLIP-0044 number). Legacy wallets (old KDX, wallet.kaspanet.io) used non-standard paths and are deprecated — migrate if needed.
+Below is the practical “format” and flow.
 
-Quick Validation TipsPaste into Kaspa explorer 
+1. Transaction structure (conceptual)
+A Kaspa transaction (simplified) has:
 
-explorer.kaspa.org
+Version: usually 0.
 
- — if it loads the address page with balance/history, it's valid.
-Most wallets auto-validate on paste.
+Inputs: each input has:
+
+Outpoint: previous transactionId (hex string) and index (u32).
+​
+
+Script/signature data for unlocking (Schnorr/Secp script, similar to Bitcoin).
+
+Outputs: each output has:
+
+amount: integer in sompi (1 KAS = 100,000,000 sompi).
+​
+
+scriptPublicKey:
+
+version: typically 0.
+
+scriptPublicKey: hex‑encoded locking script for the destination address.
+
+In RPC form (gRPC RpcTransaction), one output looks like:
+​
+
+text
+message RpcTransactionOutput {
+  uint64 amount = 1;
+  RpcScriptPublicKey scriptPublicKey = 2;
+}
+message RpcScriptPublicKey {
+  uint32 version = 1;
+  bytes scriptPublicKey = 2;
+}
+2. Building the transaction (UTXO → outputs)
+Typical steps (matching what your Rust wallet would do):
+
+Pick UTXOs (unspent outputs) from your address:
+
+Each has transactionId, index, amount, and a scriptPublicKey.
+​
+
+Decide:
+
+amountToSend to the recipient.
+
+amountAsChange back to your own address.
+
+fee (e.g. 3000 sompi).
+​
+
+Construct:
+
+Input referencing one UTXO:
+
+prevTxId = <utxo.txid>
+
+outputIndex = <utxo.index>
+
+Output to recipient:
+
+amount = amountToSend
+
+scriptPublicKey = Script(new Address(recipient)).toBuffer().toString("hex") (in JS libs).
+
+Output for change:
+
+amount = amountAsChange
+
+same script format, but your own address.
+​
+
+Example (JS style, but same structure for Rust):
+​
+
+js
+const tx = new Transaction();
+tx.setVersion(0);
+
+const txInput = new Transaction.Input.PublicKey({
+  prevTxId: selectedUtxo.outpoint.transactionId,
+  outputIndex: selectedUtxo.outpoint.index,
+  script: selectedUtxo.utxoEntry.scriptPublicKey.scriptPublicKey,
+  sequenceNumber: 0,
+});
+
+const txOutput = new Transaction.Output({
+  script: new Script(new Address(kaspaAddress)).toBuffer().toString('hex'),
+  satoshis: amountToSend,
+});
+
+const txChange = new Transaction.Output({
+  script: new Script(new Address(kaspaAddress)).toBuffer().toString('hex'),
+  satoshis: amountAsChange,
+});
+
+tx.addInput(txInput);
+tx.addOutput(txOutput);
+tx.addOutput(txChange);
+Your Rust code would mirror this logic, just with Rust types.
+
+3. Signing the transaction
+For each input, compute the appropriate sighash (Kaspa uses Schnorr/ECDSA depending on tools) and sign with the private key.
+
+Place the signature (and any pubkey data) in the input’s unlocking script (Kaspa’s Script format, analogous to Bitcoin’s scriptSig / witness).
+
+In Rust, it looks like:
+
+rust
+let msg = secp256k1::Message::from_slice(sig_hash.as_bytes())?;
+let sig: [u8; 64] = *schnorr_key.sign_schnorr(msg).as_ref();
+
+// signature_script = OP_DATA_65 <64-byte-sig || 1-byte-sighash_type>
+mutable_tx.tx.inputs[i].signature_script =
+    std::iter::once(65u8)
+        .chain(sig)
+        .chain([SIG_HASH_ALL.to_u8()])
+        .collect();
+Your KaspaWallet::create_transaction in Rust can encapsulate all of this: assemble inputs/outputs, compute fee, sign inputs, and return a ready‑to‑broadcast transaction.
+
+4. Submitting the transaction to Kaspa
+Kaspa nodes expose RPC methods like SubmitTransaction:
+​
+
+text
+// SubmitTransactionRequestMessage submits a transaction to the mempool
+message SubmitTransactionRequestMessage {
+  RpcTransaction transaction = 1;
+  bool allowOrphan = 2;
+}
+
+message SubmitTransactionResponseMessage {
+  string transactionId = 1;
+  RPCError error = 1000;
+}
+So the “format to send” is:
+
+A RpcTransaction (or equivalent JSON/GRPC-encoded struct) with:
+
+version
+
+inputs[] (outpoint + unlocking script)
+
+outputs[] (amount + scriptPublicKey).
+​
+
+Send it via:
+
+gRPC (Rust: using rusty-kaspa RPC client), or
+
+an existing CLI (kaspawallet / rusty-kaspa CLI) with a hex-encoded transaction.
+
+Example offline flow people use (you can replicate from Rust):
+​
+
+Generate unsigned tx: kaspawallet create-unsigned-transaction ...
+
+Sign on an offline machine: kaspawallet sign ...
+
+Broadcast signed hex: kaspawallet broadcast --transaction <tx_hex>.
+​
+
+Your Rust wallet can skip the external CLI and directly:
+
+Build a RpcTransaction struct from your internal Transaction.
+
+Call SubmitTransaction on your node.
+
 Never send to a kaspatest: address on mainnet (funds lost forever).
 
 https://kaspa.aspectron.org/wallets/primitives/addresses.html
