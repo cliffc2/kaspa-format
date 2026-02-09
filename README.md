@@ -1,5 +1,11 @@
-# kaspa-format
+# kaspa-format notes
+
+
+testnet-12
+https://medium.com/@azard_news/kaspas-testnet-12-relaunch-2-a-major-leap-toward-programmable-money-on-layer-1-5af8b79828ac
+
 kaspa address format
+
 
 
 To send a transaction and get it written to the Kaspa blockchain you need to: build a Kaspa transaction object, submit it via a Kaspa node’s RPC, then wait for it to be accepted into the DAG.
