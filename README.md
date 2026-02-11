@@ -4,9 +4,9 @@
 testnet-12
 https://medium.com/@azard_news/kaspas-testnet-12-relaunch-2-a-major-leap-toward-programmable-money-on-layer-1-5af8b79828ac
 
-kaspa address format
+kaspa address format (IGRALABS KASWALLET COMPARISON BELOW)
 
-
+(testnet 10)
 
 To send a transaction and get it written to the Kaspa blockchain you need to: build a Kaspa transaction object, submit it via a Kaspa node’s RPC, then wait for it to be accepted into the DAG.
 
@@ -184,4 +184,62 @@ Call SubmitTransaction on your node.
 Never send to a kaspatest: address on mainnet (funds lost forever).
 
 https://kaspa.aspectron.org/wallets/primitives/addresses.html
+
+How Kaswallet works (IGRALABS)
+1. Transaction Structure ✅
+My notes describe:
+
+text
+Version → Inputs → Outputs
+
+Kaswallet implements this through:
+
+create module: Transaction building
+sign module: Signing logic
+broadcast module: Transaction submission
+2. Building Transactions ✅
+Your notes show:
+
+rust
+// Pick UTXOs → Decide amounts → Construct inputs/outputs → Sign → Broadcast
+
+Kaswallet CLI commands mirror this exactly:
+
+bash
+# Step 1: Get UTXOs
+kaswallet-cli get-utxos
+
+# Step 2: Create unsigned transaction  
+kaswallet-cli create-unsigned-transaction --to <address> --amount <sompi>
+
+# Step 3: Sign (if created elsewhere)
+kaswallet-cli sign --transaction <tx_hex>
+
+# Step 4: Broadcast
+kaswallet-cli broadcast --transaction <tx_hex>
+
+3. gRPC Integration ✅
+Your notes mention:
+
+text
+SubmitTransaction RPC method
+RpcTransaction struct
+
+Kaswallet architecture:
+
+┌─────────────────────────────────────────┐
+│         kaswallet-daemon (gRPC)         │
+├─────────────────────────────────────────┤
+│  ┌──────────────┐  ┌───────────────┐    │
+│  │ Transaction  │  │ RPC Client    │    │
+│  │ Builder      │  │ (kaspad)      │    │
+│  └──────────────┘  └───────────────┘    │
+└─────────────────────────────────────────┘
+         │
+         ▼
+┌─────────────────────────────────────────┐
+│           kaswallet-cli                 │
+│  balance, send, create, sign, broadcast │
+└─────────────────────────────────────────┘
+
 
