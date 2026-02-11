@@ -1,4 +1,4 @@
-# kaspa-format notes
+# kaspa-format notes (braindump)
 
 
 testnet-12
@@ -242,4 +242,39 @@ Kaswallet architecture:
 │  balance, send, create, sign, broadcast │
 └─────────────────────────────────────────┘
 
+
+How to Use Kaswallet on Testnet12
+Setup Kaswallet
+bash
+# Install
+git clone https://github.com/IgraLabs/kaswallet.git
+cd kaswallet
+./install.sh
+
+# Create wallet on testnet
+kaswallet-create --testnet
+
+# Start daemon (connects to local kaspad)
+kaswallet-daemon --testnet --server='grpc://127.0.0.1:16110'
+
+Fund via Testnet12
+bash
+# Option 1: Use Rothschild from testnet12
+# (get address from rothschild output)
+
+# Option 2: Mine with kaspa-miner
+kaspa-miner --testnet --mining-address <kaswallet-address> -p 16210 -t 1
+
+# Check balance
+kaswallet-cli --testnet balance
+
+Send Transaction
+bash
+# Create and broadcast
+kaswallet-cli --testnet send --to <recipient-address> --amount 100000000
+
+# Or: Create unsigned, sign separately, broadcast
+kaswallet-cli --testnet create-unsigned-transaction --to <addr> --amount 1000 > unsigned.tx
+kaswallet-cli --testnet sign --transaction unsigned.tx > signed.tx  
+kaswallet-cli --testnet broadcast --transaction signed.tx
 
