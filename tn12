@@ -1,0 +1,73 @@
+Kaspa Testnet 12 (TN12) Covenant Examples
+The Silverscript repository contains all the TN12 covenant implementations. Here are the key example contracts:
+
+1. Simple Covenant Example (SilverScript)
+kaspanet / silverscript / TUTORIAL.md
+pragma silverscript ^0.1.0;
+
+contract SimpleCovenant(pubkey recipient) {
+    entrypoint function spend() {
+        // First output must go to the recipient
+        bytes34 recipientLock = new LockingBytecodeP2PK(recipient);
+2. Recurring Payment Covenant
+kaspanet / silverscript / TUTORIAL.md
+pragma silverscript ^0.1.0;
+
+contract RecurringPayment(pubkey recipient, int paymentAmount, int period) {
+    entrypoint function withdraw() {
+        // Must wait for the period to elapse
+        require(this.age >= period);
+3. Covenant Escrow Example (Rust Test)
+kaspanet / silverscript / silverscript-lang / tests / examples_tests.rs
+#[test]
+fn compiles_covenant_escrow_example_and_verifies() {
+    let source = load_example_source("covenant_escrow.sil");
+
+    let arbiter = random_keypair();
+    let arbiter_pk = arbiter.x_only_public_key().0.serialize();
+4. Covenant Mecenas Example (Recurring Payments)
+kaspanet / silverscript / silverscript-lang / tests / examples_tests.rs
+#[test]
+fn compiles_covenant_mecenas_example_and_verifies() {
+    let source = load_example_source("covenant_mecenas.sil");
+
+    let recipient = [21u8; 32];
+    let funder_key = random_keypair();
+5. Covenant Last Will Example (Time-locked Inheritance)
+kaspanet / silverscript / silverscript-lang / tests / examples_tests.rs
+#[test]
+fn compiles_covenant_last_will_and_verifies() {
+    let output = TransactionOutput {
+        value: 4_000,
+        script_public_key: ScriptPublicKey::new(0, compiled.script.clone().into()),
+        covenant: None,
+6. Covenant Opcode Introspection (Rust)
+kaspanet / silverscript / silverscript-lang / tests / compiler_tests.rs
+#[test]
+fn executes_opcode_builtins_covenants() {
+    let source = r#"
+        contract Test() {
+            entrypoint function main() {
+                require(OpAuthOutputCount(0) == 2);
+7. Transaction Building & Covenant Binding (Rust SDK)
+kaspanet / silverscript / covenants / sdk / src / builder.rs
+#[test]
+fn test_state_transition_with_spk_verification() {
+    let mut tx_output = TransactionOutput::new(SOMPI_PER_KASPA, output_spk);
+    tx_output.covenant = Some(CovenantBinding { authorizing_input: 0, covenant_id });
+
+    let mut tx =
+Resources
+Repository: https://github.com/kaspanet/silverscript
+Tutorial: https://github.com/kaspanet/silverscript/blob/main/TUTORIAL.md
+Example Contracts: https://github.com/kaspanet/silverscript/tree/main/silverscript-lang/tests/examples/
+Test Suite: https://github.com/kaspanet/silverscript/tree/main/silverscript-lang/tests
+Key TN12 Covenant Features
+The examples demonstrate:
+
+Covenant binding to specific outputs
+Introspection opcodes (OpAuthOutputCount, OpInputCovenantId, OpCovInputCount, etc.)
+Signature verification with Schnorr signatures
+State transitions and transaction validation
+Recurring payments and time-locked conditions
+These are the official working examples for Kaspa Testnet 12 covenant development!
