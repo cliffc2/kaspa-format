@@ -1,0 +1,46 @@
+pragma silverscript ^0.1.0;
+💡
+Version declaration — tells the compiler which SilverScript version to use
+ 
+// DeadManSwitch
+// Dead Man's Switch — trustless inheritance / recovery.
+// Owner checks in periodically. If inactive for
+// 90 days, the beneficiary can claim.
+// Owner can spend freely. To check in, send funds back to
+// the same contract address to reset the timer.
+💡
+"DeadManSwitch" — a dead man's switch with 90-day inactivity trigger
+ 
+contract DeadManSwitch(pubkey owner, pubkey beneficiary) {
+💡
+"DeadManSwitch" — a dead man's switch with 90-day inactivity trigger
+ 
+    // ── Path A: Owner Spend / Check-In ───────────────
+💡
+Owner path — spend normally or check in to reset the timer
+    // Owner uses this to spend normally or to string">"check in"
+    // by sending funds back to this contract.
+💡
+"DeadManSwitch" — a dead man's switch with 90-day inactivity trigger
+    // Each check-in resets the inactivity timer.
+    entrypoint function spend(sig ownerSig) {
+        require(checkSig(ownerSig, owner));
+💡
+Only the owner can spend or check in
+        // Owner can spend freely — to check in, send back to the same address
+    }
+ 
+    // ── Path B: Beneficiary Claims After Inactivity ──
+💡
+Beneficiary path — claimable after 90 days of owner inactivity
+    // If the owner hasn't checked in for 90 days,
+    // the beneficiary can claim all funds.
+    entrypoint function claim(sig beneficiarySig) {
+        require(checkSig(beneficiarySig, beneficiary));
+💡
+Only the designated beneficiary can claim
+        require(this.age >= 90 days);
+💡
+The UTXO must be at least 90 days old — meaning the owner hasn't checked in
+    }
+}
